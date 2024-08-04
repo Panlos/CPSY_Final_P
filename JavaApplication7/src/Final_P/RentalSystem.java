@@ -1,44 +1,30 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
-package Final_P;
-
+import Final_P.Client;
+import Final_P.Equipment;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.*;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
-/**
- *
- * @author aidanpratt
- */
 public class RentalSystem extends JFrame {
-    private ArrayList<String> equipmentList;
-    private ArrayList<String> clientList;
+    private List<Equipment> equipmentList;
+    private List<Client> clientList;
     private JTextArea displayArea;
 
     public RentalSystem() {
-        equipmentList = new ArrayList<>();
-        clientList = new ArrayList<>();
-        equipmentList.add("a");
-        equipmentList.add("b");
-        equipmentList.add("c");
-        equipmentList.add("d");
-        equipmentList.add("e");
-        equipmentList.add("f");
-        equipmentList.add("g");
-        equipmentList.add("h");
-        equipmentList.add("i");
+        equipmentList = loadEquipment("data/RentalEquipment.csv");
+        clientList = loadClients("data/CustomerInformation.csv");
 
         setTitle("Rental System");
-        setSize(800, 500);
+        setSize(800, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
         JPanel panel = new JPanel();
-        panel.setLayout(new GridLayout(5, 2));
+        panel.setLayout(new GridLayout(6, 2));
 
         JButton addEquipmentButton = new JButton("Add Equipment");
         JButton deleteEquipmentButton = new JButton("Delete Equipment");
@@ -50,9 +36,20 @@ public class RentalSystem extends JFrame {
         addEquipmentButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                String equipment = JOptionPane.showInputDialog("Enter equipment name:");
-                if (equipment != null && !equipment.trim().isEmpty()) {
-                    equipmentList.add(equipment.trim());
+                String equipmentDetails = JOptionPane.showInputDialog("Enter equipment details (id,category_id,name,description,daily_rate):");
+                if (equipmentDetails != null && !equipmentDetails.trim().isEmpty()) {
+                    String[] parts = equipmentDetails.split(",");
+                    if (parts.length == 5) {
+                        Equipment equipment = new Equipment(
+                                Integer.parseInt(parts[0]),
+                                Integer.parseInt(parts[1]),
+                                parts[2],
+                                parts[3],
+                                Double.parseDouble(parts[4])
+                        );
+                        equipmentList.add(equipment);
+                        saveEquipment("data/RentalEquipment.csv", equipmentList);
+                    }
                 }
             }
         });
@@ -60,25 +57,33 @@ public class RentalSystem extends JFrame {
         deleteEquipmentButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                String equipment = JOptionPane.showInputDialog("Enter equipment name to delete:");
-                if (equipment != null && !equipment.trim().isEmpty()) {
-                    if(equipmentList.remove(equipment.trim()) == true){
-                    equipmentList.remove(equipment.trim());
-                    }
-                        else{
-                    displayArea.setText("Equipment not found. Unable to delete.");
-                    }
+                String equipmentId = JOptionPane.showInputDialog("Enter equipment ID to delete:");
+                if (equipmentId != null && !equipmentId.trim().isEmpty()) {
+                    equipmentList = equipmentList.stream()
+                            .filter(eq -> eq.getId() != Integer.parseInt(equipmentId.trim()))
+                            .collect(Collectors.toList());
+                    saveEquipment("data/RentalEquipment.csv", equipmentList);
                 }
-                
             }
         });
 
         addClientButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                String client = JOptionPane.showInputDialog("Enter client name:");
-                if (client != null && !client.trim().isEmpty()) {
-                    clientList.add(client.trim());
+                String clientDetails = JOptionPane.showInputDialog("Enter client details (id,last_name,first_name,contact_phone,email):");
+                if (clientDetails != null && !clientDetails.trim().isEmpty()) {
+                    String[] parts = clientDetails.split(",");
+                    if (parts.length == 5) {
+                        Client client = new Client(
+                                Integer.parseInt(parts[0]),
+                                parts[1],
+                                parts[2],
+                                parts[3],
+                                parts[4]
+                        );
+                        clientList.add(client);
+                        saveClients("data/CustomerInformation.csv", clientList);
+                    }
                 }
             }
         });
@@ -87,7 +92,7 @@ public class RentalSystem extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 displayArea.setText("Equipment List:\n");
-                for (String equipment : equipmentList) {
+                for (Equipment equipment : equipmentList) {
                     displayArea.append(equipment + "\n");
                 }
             }
@@ -97,7 +102,7 @@ public class RentalSystem extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 displayArea.setText("Client List:\n");
-                for (String client : clientList) {
+                for (Client client : clientList) {
                     displayArea.append(client + "\n");
                 }
             }
@@ -106,16 +111,22 @@ public class RentalSystem extends JFrame {
         rentItemButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                String client = JOptionPane.showInputDialog("Enter client name:");
-                if (client != null && clientList.contains(client.trim())) {
-                    String equipment = JOptionPane.showInputDialog("Enter equipment name to rent:");
-                    if (equipment != null && equipmentList.contains(equipment.trim())) {
-                        displayArea.setText(client.trim() + " has rented " + equipment.trim());
-                    } else {
-                        displayArea.setText("Equipment not found.");
+                String clientId = JOptionPane.showInputDialog("Enter client ID:");
+                if (clientId != null && !clientId.trim().isEmpty()) {
+                    String equipmentId = JOptionPane.showInputDialog("Enter equipment ID to rent:");
+                    if (equipmentId != null && !equipmentId.trim().isEmpty()) {
+                        Client client = clientList.stream()
+                                .filter(c -> c.getId() == Integer.parseInt(clientId.trim()))
+                                .findFirst().orElse(null);
+                        Equipment equipment = equipmentList.stream()
+                                .filter(eq -> eq.getId() == Integer.parseInt(equipmentId.trim()))
+                                .findFirst().orElse(null);
+                        if (client != null && equipment != null) {
+                            displayArea.setText(client.getFirstName() + " " + client.getLastName() + " has rented " + equipment.getName());
+                        } else {
+                            displayArea.setText("Client or equipment not found.");
+                        }
                     }
-                } else {
-                    displayArea.setText("Client not found.");
                 }
             }
         });
@@ -136,5 +147,70 @@ public class RentalSystem extends JFrame {
 
         setVisible(true);
     }
-}
 
+    private List<Equipment> loadEquipment(String fileName) {
+        List<Equipment> equipment = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(fileName))) {
+            String line;
+            br.readLine(); // Skip header
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.split(",");
+                Equipment eq = new Equipment(
+                        Integer.parseInt(parts[0]),
+                        Integer.parseInt(parts[1]),
+                        parts[2],
+                        parts[3],
+                        Double.parseDouble(parts[4])
+                );
+                equipment.add(eq);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return equipment;
+    }
+
+    private List<Client> loadClients(String fileName) {
+        List<Client> clients = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(fileName))) {
+            String line;
+            br.readLine(); // Skip header
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.split(",");
+                Client client = new Client(
+                        Integer.parseInt(parts[0]),
+                        parts[1],
+                        parts[2],
+                        parts[3],
+                        parts[4]
+                );
+                clients.add(client);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return clients;
+    }
+
+    private void saveEquipment(String fileName, List<Equipment> equipmentList) {
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(fileName))) {
+            bw.write("equipment_id,category_id,name,description,daily_rate\n");
+            for (Equipment eq : equipmentList) {
+                bw.write(eq.toCSV() + "\n");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void saveClients(String fileName, List<Client> clientList) {
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(fileName))) {
+            bw.write("customer_id,last_name,first_name,contact_phone,email\n");
+            for (Client client : clientList) {
+                bw.write(client.toCSV() + "\n");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
