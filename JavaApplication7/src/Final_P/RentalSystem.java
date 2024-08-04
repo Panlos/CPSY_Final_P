@@ -22,9 +22,18 @@ public class RentalSystem extends JFrame {
     public RentalSystem() {
         equipmentList = new ArrayList<>();
         clientList = new ArrayList<>();
+        equipmentList.add("a");
+        equipmentList.add("b");
+        equipmentList.add("c");
+        equipmentList.add("d");
+        equipmentList.add("e");
+        equipmentList.add("f");
+        equipmentList.add("g");
+        equipmentList.add("h");
+        equipmentList.add("i");
 
         setTitle("Rental System");
-        setSize(600, 400);
+        setSize(800, 500);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
@@ -53,8 +62,14 @@ public class RentalSystem extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 String equipment = JOptionPane.showInputDialog("Enter equipment name to delete:");
                 if (equipment != null && !equipment.trim().isEmpty()) {
+                    if(equipmentList.remove(equipment.trim()) == true){
                     equipmentList.remove(equipment.trim());
+                    }
+                        else{
+                    displayArea.setText("Equipment not found. Unable to delete.");
+                    }
                 }
+                
             }
         });
 
