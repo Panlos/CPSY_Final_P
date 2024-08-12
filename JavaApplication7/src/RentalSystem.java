@@ -1,10 +1,11 @@
 import Final_P.Client;
 import Final_P.Equipment;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.*;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -15,8 +16,8 @@ public class RentalSystem extends JFrame {
     private JTextArea displayArea;
 
     public RentalSystem() {
-        equipmentList = loadEquipment("data/RentalEquipment.csv");
-        clientList = loadClients("data/CustomerInformation.csv");
+        equipmentList = loadEquipment();  // Load from database
+        clientList = loadClients();       // Load from database
 
         setTitle("Rental System");
         setSize(800, 600);
@@ -33,6 +34,7 @@ public class RentalSystem extends JFrame {
         JButton displayClientsButton = new JButton("Display All Clients");
         JButton rentItemButton = new JButton("Rent Item");
 
+        // Add Equipment Button Action
         addEquipmentButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -47,26 +49,28 @@ public class RentalSystem extends JFrame {
                                 parts[3],
                                 Double.parseDouble(parts[4])
                         );
+                        addEquipment(equipment);
                         equipmentList.add(equipment);
-                        saveEquipment("data/RentalEquipment.csv", equipmentList);
                     }
                 }
             }
         });
 
+        // Delete Equipment Button Action
         deleteEquipmentButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 String equipmentId = JOptionPane.showInputDialog("Enter equipment ID to delete:");
                 if (equipmentId != null && !equipmentId.trim().isEmpty()) {
+                    deleteEquipment(Integer.parseInt(equipmentId.trim()));
                     equipmentList = equipmentList.stream()
                             .filter(eq -> eq.getId() != Integer.parseInt(equipmentId.trim()))
                             .collect(Collectors.toList());
-                    saveEquipment("data/RentalEquipment.csv", equipmentList);
                 }
             }
         });
 
+        // Add Client Button Action
         addClientButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -81,13 +85,14 @@ public class RentalSystem extends JFrame {
                                 parts[3],
                                 parts[4]
                         );
+                        addClient(client);
                         clientList.add(client);
-                        saveClients("data/CustomerInformation.csv", clientList);
                     }
                 }
             }
         });
 
+        // Display All Equipment Button Action
         displayEquipmentButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -98,6 +103,7 @@ public class RentalSystem extends JFrame {
             }
         });
 
+        // Display All Clients Button Action
         displayClientsButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -108,6 +114,7 @@ public class RentalSystem extends JFrame {
             }
         });
 
+        // Rent Item Button Action
         rentItemButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -123,6 +130,7 @@ public class RentalSystem extends JFrame {
                                 .findFirst().orElse(null);
                         if (client != null && equipment != null) {
                             displayArea.setText(client.getFirstName() + " " + client.getLastName() + " has rented " + equipment.getName());
+                            rentEquipment(client.getId(), equipment.getId());
                         } else {
                             displayArea.setText("Client or equipment not found.");
                         }
@@ -148,69 +156,131 @@ public class RentalSystem extends JFrame {
         setVisible(true);
     }
 
-    private List<Equipment> loadEquipment(String fileName) {
-        List<Equipment> equipment = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new FileReader(fileName))) {
-            String line;
-            br.readLine(); // Skip header
-            while ((line = br.readLine()) != null) {
-                String[] parts = line.split(",");
-                Equipment eq = new Equipment(
-                        Integer.parseInt(parts[0]),
-                        Integer.parseInt(parts[1]),
-                        parts[2],
-                        parts[3],
-                        Double.parseDouble(parts[4])
-                );
-                equipment.add(eq);
-            }
-        } catch (IOException e) {
+    // Establish database connection
+    private Connection connectToDatabase() {
+        Connection connection = null;
+        try {
+            String url = "jdbc:mysql://localhost:3306/rentalsystem";
+            String username = "root";  // Replace with your DB username
+            String password = "password";  // Replace with your DB password
+
+            connection = DriverManager.getConnection(url, username, password);
+            System.out.println("Connected to the database successfully!");
+        } catch (SQLException e) {
             e.printStackTrace();
         }
-        return equipment;
+        return connection;
     }
 
-    private List<Client> loadClients(String fileName) {
-        List<Client> clients = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new FileReader(fileName))) {
-            String line;
-            br.readLine(); // Skip header
-            while ((line = br.readLine()) != null) {
-                String[] parts = line.split(",");
+    // Load Equipment from Database
+    private List<Equipment> loadEquipment() {
+        List<Equipment> equipmentList = new ArrayList<>();
+        String query = "SELECT equipmentID, categoryID, name, description, dailyRate FROM Rental_Equipment";
+        try (Connection connection = connectToDatabase();
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(query)) {
+
+            while (resultSet.next()) {
+                Equipment equipment = new Equipment(
+                        resultSet.getInt("equipmentID"),
+                        resultSet.getInt("categoryID"),
+                        resultSet.getString("name"),
+                        resultSet.getString("description"),
+                        resultSet.getDouble("dailyRate")
+                );
+                equipmentList.add(equipment);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return equipmentList;
+    }
+
+    // Load Clients from Database
+    private List<Client> loadClients() {
+        List<Client> clientList = new ArrayList<>();
+        String query = "SELECT customerID, lastName, firstName, contactPhone, email FROM Customer_Information";
+        try (Connection connection = connectToDatabase();
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(query)) {
+
+            while (resultSet.next()) {
                 Client client = new Client(
-                        Integer.parseInt(parts[0]),
-                        parts[1],
-                        parts[2],
-                        parts[3],
-                        parts[4]
+                        resultSet.getInt("customerID"),
+                        resultSet.getString("lastName"),
+                        resultSet.getString("firstName"),
+                        resultSet.getString("contactPhone"),
+                        resultSet.getString("email")
                 );
-                clients.add(client);
+                clientList.add(client);
             }
-        } catch (IOException e) {
+        } catch (SQLException e) {
             e.printStackTrace();
         }
-        return clients;
+        return clientList;
     }
 
-    private void saveEquipment(String fileName, List<Equipment> equipmentList) {
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(fileName))) {
-            bw.write("equipment_id,category_id,name,description,daily_rate\n");
-            for (Equipment eq : equipmentList) {
-                bw.write(eq.toCSV() + "\n");
-            }
-        } catch (IOException e) {
+    // Add Equipment to Database
+    private void addEquipment(Equipment equipment) {
+        String query = "INSERT INTO Rental_Equipment (equipmentID, categoryID, name, description, dailyRate) VALUES (?, ?, ?, ?, ?)";
+        try (Connection connection = connectToDatabase();
+             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+
+            preparedStatement.setInt(1, equipment.getId());
+            preparedStatement.setInt(2, equipment.getCategoryId());
+            preparedStatement.setString(3, equipment.getName());
+            preparedStatement.setString(4, equipment.getDescription());
+            preparedStatement.setDouble(5, equipment.getDailyRate());
+
+            preparedStatement.executeUpdate();
+        } catch (SQLException e) {
             e.printStackTrace();
         }
     }
 
-    private void saveClients(String fileName, List<Client> clientList) {
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(fileName))) {
-            bw.write("customer_id,last_name,first_name,contact_phone,email\n");
-            for (Client client : clientList) {
-                bw.write(client.toCSV() + "\n");
-            }
-        } catch (IOException e) {
+    // Add Client to Database
+    private void addClient(Client client) {
+        String query = "INSERT INTO Customer_Information (customerID, lastName, firstName, contactPhone, email) VALUES (?, ?, ?, ?, ?)";
+        try (Connection connection = connectToDatabase();
+             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+
+            preparedStatement.setInt(1, client.getId());
+            preparedStatement.setString(2, client.getLastName());
+            preparedStatement.setString(3, client.getFirstName());
+            preparedStatement.setString(4, client.getContactPhone());
+            preparedStatement.setString(5, client.getEmail());
+
+            preparedStatement.executeUpdate();
+        } catch (SQLException e) {
             e.printStackTrace();
         }
     }
+
+    // Delete Equipment from Database
+    private void deleteEquipment(int equipmentId) {
+        String query = "DELETE FROM Rental_Equipment WHERE equipmentID = ?";
+        try (Connection connection = connectToDatabase();
+             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+
+            preparedStatement.setInt(1, equipmentId);
+            preparedStatement.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Rent Equipment (Just an example, assuming a rental table exists)
+    private void rentEquipment(int clientId, int equipmentId) {
+        String query = "INSERT INTO Rental_Transactions (customerID, equipmentID, rentalDate) VALUES (?, ?, NOW())";
+        try (Connection connection = connectToDatabase();
+             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+
+            preparedStatement.setInt(1, clientId);
+            preparedStatement.setInt(2, equipmentId);
+            preparedStatement.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
 }
